@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ToneJS Music Player</title>
+    <script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        
+        .selector-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            background-color: white;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        
+        .controls {
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        button {
+            padding: 15px 30px;
+            margin: 0 10px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .play-btn {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        .play-btn:hover {
+            background-color: #45a049;
+        }
+        
+        .play-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .stop-btn {
+            background-color: #f44336;
+            color: white;
+        }
+        
+        .stop-btn:hover {
+            background-color: #da190b;
+        }
+        
+        .stop-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .current-selection {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .current-selection h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        
+        .current-selection p {
+            margin: 5px 0;
+            color: #666;
+        }
+        
+        .status {
+            text-align: center;
+            margin-top: 15px;
+            font-weight: bold;
+            color: #666;
+        }
+        
+        .status.playing {
+            color: #4CAF50;
+        }
+        
+        .status.stopped {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 ToneJS Music Player</h1>
+        
+        <div class="selector-group">
+            <label for="packSelect">Select a Pack:</label>
+            <select id="packSelect">
+                <option value="">-- Choose a pack --</option>
+            </select>
+        </div>
+        
+        <div class="selector-group">
+            <label for="soundSelect">Select a Sound:</label>
+            <select id="soundSelect" disabled>
+                <option value="">-- Choose a sound --</option>
+            </select>
+        </div>
+        
+        <div class="current-selection" id="currentSelection" style="display: none;">
+            <h3>Current Selection</h3>
+            <p><strong>Pack:</strong> <span id="selectedPack">-</span></p>
+            <p><strong>Sound:</strong> <span id="selectedSound">-</span></p>
+            <p><strong>Type:</strong> <span id="selectedType">-</span></p>
+        </div>
+        
+        <div class="controls">
+            <button id="playBtn" class="play-btn" disabled>▶️ Play Loop</button>
+            <button id="stopBtn" class="stop-btn" disabled>⏹️ Stop</button>
+        </div>
+        
+        <div class="status" id="status">Select a pack and sound to begin</div>
+    </div>
+
+    <script>
+        // Global variables
+        let songsData = null;
+        let currentPlayer = null;
+        let isPlaying = false;
+        
+        // DOM elements
+        const packSelect = document.getElementById('packSelect');
+        const soundSelect = document.getElementById('soundSelect');
+        const playBtn = document.getElementById('playBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const status = document.getElementById('status');
+        const currentSelection = document.getElementById('currentSelection');
+        const selectedPack = document.getElementById('selectedPack');
+        const selectedSound = document.getElementById('selectedSound');
+        const selectedType = document.getElementById('selectedType');
+        
+        // Load songs data
+        async function loadSongsData() {
+            try {
+                const response = await fetch('songs.json');
+                songsData = await response.json();
+                populatePackSelect();
+            } catch (error) {
+                console.error('Error loading songs data:', error);
+                status.textContent = 'Error loading songs data';
+                status.className = 'status stopped';
+            }
+        }
+        
+        // Populate pack selector
+        function populatePackSelect() {
+            packSelect.innerHTML = '<option value="">-- Choose a pack --</option>';
+            
+            songsData.packs.forEach((pack, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = pack.name;
+                packSelect.appendChild(option);
+            });
+        }
+        
+        // Handle pack selection
+        packSelect.addEventListener('change', function() {
+            const packIndex = this.value;
+            
+            if (packIndex === '') {
+                soundSelect.disabled = true;
+                soundSelect.innerHTML = '<option value="">-- Choose a sound --</option>';
+                hideCurrentSelection();
+                updateButtons();
+                return;
+            }
+            
+            const pack = songsData.packs[packIndex];
+            populateSoundSelect(pack.sounds);
+            soundSelect.disabled = false;
+        });
+        
+        // Populate sound selector
+        function populateSoundSelect(sounds) {
+            soundSelect.innerHTML = '<option value="">-- Choose a sound --</option>';
+            
+            sounds.forEach((sound, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = `${sound.name} (${sound.type})`;
+                soundSelect.appendChild(option);
+            });
+        }
+        
+        // Handle sound selection
+        soundSelect.addEventListener('change', function() {
+            const packIndex = packSelect.value;
+            const soundIndex = this.value;
+            
+            if (packIndex === '' || soundIndex === '') {
+                hideCurrentSelection();
+                updateButtons();
+                return;
+            }
+            
+            const pack = songsData.packs[packIndex];
+            const sound = pack.sounds[soundIndex];
+            
+            showCurrentSelection(pack, sound);
+            updateButtons();
+            
+            // Stop current playback if any
+            if (isPlaying) {
+                stopPlayback();
+            }
+        });
+        
+        // Show current selection
+        function showCurrentSelection(pack, sound) {
+            selectedPack.textContent = pack.name;
+            selectedSound.textContent = sound.name;
+            selectedType.textContent = sound.type;
+            currentSelection.style.display = 'block';
+        }
+        
+        // Hide current selection
+        function hideCurrentSelection() {
+            currentSelection.style.display = 'none';
+        }
+        
+        // Update button states
+        function updateButtons() {
+            const hasSelection = packSelect.value !== '' && soundSelect.value !== '';
+            playBtn.disabled = !hasSelection || isPlaying;
+            stopBtn.disabled = !isPlaying;
+        }
+        
+        // Build audio URL
+        function buildAudioUrl(pack, sound) {
+            const basePath = songsData.path;
+            return `https://curriculum.code.org/media/musiclab/${basePath}/${pack.path}/${sound.path}/${sound.src}.mp3`;
+        }
+        
+        // Play audio
+        async function playAudio() {
+            const packIndex = packSelect.value;
+            const soundIndex = soundSelect.value;
+            
+            if (packIndex === '' || soundIndex === '') return;
+            
+            const pack = songsData.packs[packIndex];
+            const sound = pack.sounds[soundIndex];
+            const audioUrl = buildAudioUrl(pack, sound);
+            
+            try {
+                // Ensure audio context is started
+                if (Tone.context.state !== 'running') {
+                    await Tone.start();
+                }
+                
+                // Create new player
+                currentPlayer = new Tone.Player({
+                    url: audioUrl,
+                    loop: true,
+                    autostart: false
+                }).toDestination();
+                
+                // Wait for buffer to load
+                await Tone.loaded();
+                
+                // Start playback
+                currentPlayer.start();
+                isPlaying = true;
+                
+                status.textContent = `Playing: ${sound.name} (looping)`;
+                status.className = 'status playing';
+                updateButtons();
+                
+            } catch (error) {
+                console.error('Error playing audio:', error);
+                status.textContent = 'Error playing audio';
+                status.className = 'status stopped';
+                isPlaying = false;
+                updateButtons();
+            }
+        }
+        
+        // Stop audio
+        function stopPlayback() {
+            if (currentPlayer) {
+                currentPlayer.stop();
+                currentPlayer.dispose();
+                currentPlayer = null;
+            }
+            
+            isPlaying = false;
+            status.textContent = 'Stopped';
+            status.className = 'status stopped';
+            updateButtons();
+        }
+        
+        // Event listeners
+        playBtn.addEventListener('click', playAudio);
+        stopBtn.addEventListener('click', stopPlayback);
+        
+        // Initialize
+        loadSongsData();
+    </script>
+</body>
+</html>
