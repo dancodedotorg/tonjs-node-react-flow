@@ -119,14 +119,76 @@ const SongSelectNode = ({ data, isConnectable }) => {
   );
 };
 
+// High Pass Filter Node Component
+const HighPassFilterNode = ({ data, isConnectable }) => {
+  const [frequency, setFrequency] = useState(1000);
+
+  const handleFrequencyChange = (e) => {
+    const newFreq = parseInt(e.target.value);
+    setFrequency(newFreq);
+    
+    // Update the filter data
+    if (data.onFilterChange) {
+      data.onFilterChange({
+        type: 'highpass',
+        frequency: newFreq
+      });
+    }
+  };
+
+  return (
+    <div className="highpass-filter-node">
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="input"
+        isConnectable={isConnectable}
+        className="handle-left"
+      />
+      
+      <div className="node-header">
+        <h3>🎛️ High Pass Filter</h3>
+      </div>
+      
+      <div className="node-content">
+        <div className="filter-control">
+          <label>Frequency: {frequency} Hz</label>
+          <input
+            type="range"
+            min="20"
+            max="20000"
+            value={frequency}
+            onChange={handleFrequencyChange}
+            className="frequency-slider"
+          />
+          <div className="frequency-labels">
+            <span>20Hz</span>
+            <span>20kHz</span>
+          </div>
+        </div>
+      </div>
+      
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="output"
+        isConnectable={isConnectable}
+        className="handle-right"
+      />
+    </div>
+  );
+};
+
 // Output Node Component
 const OutputNode = ({ data, isConnectable }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentPlayer, setCurrentPlayer] = useState(null);
+  const [currentChain, setCurrentChain] = useState([]);
   const [status, setStatus] = useState('Disconnected');
 
   const isConnected = data.isConnected;
   const songData = data.songData;
+  const effectChain = data.effectChain || [];
 
   const playAudio = async () => {
     if (!songData || !isConnected) return;
@@ -144,18 +206,46 @@ const OutputNode = ({ data, isConnectable }) => {
         await Tone.start();
       }
 
-      // Stop any existing player
+      // Stop any existing player and dispose of chain
       if (currentPlayer) {
         currentPlayer.stop();
         currentPlayer.dispose();
       }
+      
+      // Dispose of existing effect chain
+      currentChain.forEach(effect => {
+        if (effect && effect.dispose) {
+          effect.dispose();
+        }
+      });
 
       // Create new player
       const player = new Tone.Player({
         url: songData.audioUrl,
         loop: true,
         autostart: false
-      }).toDestination();
+      });
+
+      // Create effect chain
+      const effects = [];
+      effectChain.forEach(effectData => {
+        if (effectData.type === 'highpass') {
+          const filter = new Tone.Filter(effectData.frequency, 'highpass');
+          effects.push(filter);
+        }
+        // Add more effect types here as needed
+      });
+
+      // Connect the chain: player -> effects -> destination
+      let currentNode = player;
+      effects.forEach(effect => {
+        currentNode.connect(effect);
+        currentNode = effect;
+      });
+      currentNode.toDestination();
+
+      // Store the chain for cleanup
+      setCurrentChain(effects);
 
       // Wait for buffer to load
       await Tone.loaded();
@@ -164,7 +254,11 @@ const OutputNode = ({ data, isConnectable }) => {
       player.start();
       setCurrentPlayer(player);
       setIsPlaying(true);
-      setStatus(`Playing: ${songData.sound.name} (looping)`);
+      
+      const effectsText = effectChain.length > 0
+        ? ` with ${effectChain.length} effect(s)`
+        : '';
+      setStatus(`Playing: ${songData.sound.name}${effectsText} (looping)`);
 
     } catch (error) {
       console.error('Error playing audio:', error);
@@ -179,6 +273,15 @@ const OutputNode = ({ data, isConnectable }) => {
       currentPlayer.dispose();
       setCurrentPlayer(null);
     }
+    
+    // Dispose of effect chain
+    currentChain.forEach(effect => {
+      if (effect && effect.dispose) {
+        effect.dispose();
+      }
+    });
+    setCurrentChain([]);
+    
     setIsPlaying(false);
     setStatus(isConnected ? 'Connected - Ready to play' : 'Disconnected');
   };
@@ -239,6 +342,7 @@ const OutputNode = ({ data, isConnectable }) => {
 const nodeTypes = {
   songSelect: SongSelectNode,
   output: OutputNode,
+  highpassFilter: HighPassFilterNode,
 };
 
 // Initial nodes
@@ -247,17 +351,26 @@ const initialNodes = [
     id: '1',
     type: 'songSelect',
     position: { x: 100, y: 100 },
-    data: { 
+    data: {
       onSelectionChange: () => {} // Will be set in App component
     },
   },
   {
     id: '2',
+    type: 'highpassFilter',
+    position: { x: 350, y: 100 },
+    data: {
+      onFilterChange: () => {} // Will be set in App component
+    },
+  },
+  {
+    id: '3',
     type: 'output',
-    position: { x: 500, y: 100 },
-    data: { 
+    position: { x: 600, y: 100 },
+    data: {
       isConnected: false,
-      songData: null
+      songData: null,
+      effectChain: []
     },
   },
 ];
@@ -268,76 +381,108 @@ function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [songSelection, setSongSelection] = useState(null);
+  const [filterSettings, setFilterSettings] = useState({});
+
+  // Build effect chain by tracing connections from song select to output
+  const buildEffectChain = useCallback((currentEdges, currentNodes) => {
+    const chain = [];
+    
+    // Find the output node
+    const outputNode = currentNodes.find(node => node.type === 'output');
+    if (!outputNode) return chain;
+    
+    // Trace backwards from output to find the chain
+    let currentNodeId = outputNode.id;
+    const visited = new Set();
+    
+    while (currentNodeId && !visited.has(currentNodeId)) {
+      visited.add(currentNodeId);
+      
+      // Find edge that connects to this node
+      const incomingEdge = currentEdges.find(edge => edge.target === currentNodeId);
+      if (!incomingEdge) break;
+      
+      const sourceNode = currentNodes.find(node => node.id === incomingEdge.source);
+      if (!sourceNode) break;
+      
+      // If it's an effect node, add to chain
+      if (sourceNode.type === 'highpassFilter') {
+        const filterData = filterSettings[sourceNode.id];
+        if (filterData) {
+          chain.unshift(filterData); // Add to beginning to maintain order
+        }
+      }
+      
+      currentNodeId = sourceNode.id;
+    }
+    
+    return chain;
+  }, [filterSettings]);
+
+  const updateOutputNode = useCallback((currentEdges, currentNodes) => {
+    const effectChain = buildEffectChain(currentEdges, currentNodes);
+    const outputNode = currentNodes.find(node => node.type === 'output');
+    
+    if (!outputNode) return currentNodes;
+    
+    // Check if output is connected to anything
+    const hasConnection = currentEdges.some(edge => edge.target === outputNode.id);
+    
+    return currentNodes.map(node => {
+      if (node.id === outputNode.id) {
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            isConnected: hasConnection,
+            songData: hasConnection ? songSelection : null,
+            effectChain: effectChain
+          }
+        };
+      }
+      return node;
+    });
+  }, [buildEffectChain, songSelection]);
 
   const onConnect = useCallback(
     (params) => {
-      const newEdge = addEdge(params, edges);
-      setEdges(newEdge);
+      const newEdges = addEdge(params, edges);
+      setEdges(newEdges);
       
-      // Update output node to be connected
-      setNodes((nds) =>
-        nds.map((node) => {
-          if (node.id === '2') {
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                isConnected: true,
-                songData: songSelection
-              }
-            };
-          }
-          return node;
-        })
-      );
+      // Update nodes based on new connections
+      setNodes(currentNodes => updateOutputNode(newEdges, currentNodes));
     },
-    [edges, setEdges, setNodes, songSelection]
+    [edges, setEdges, setNodes, updateOutputNode]
   );
 
   const onEdgesDelete = useCallback(
     (edgesToDelete) => {
-      // Update output node to be disconnected
-      setNodes((nds) =>
-        nds.map((node) => {
-          if (node.id === '2') {
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                isConnected: false,
-                songData: null
-              }
-            };
-          }
-          return node;
-        })
-      );
+      // Update nodes based on remaining connections
+      setNodes(currentNodes => updateOutputNode(edges, currentNodes));
     },
-    [setNodes]
+    [setNodes, edges, updateOutputNode]
   );
 
   // Handle song selection changes
   const handleSelectionChange = useCallback((selection) => {
     setSongSelection(selection);
     
-    // Update output node with new song data if connected
-    setNodes((nds) =>
-      nds.map((node) => {
-        if (node.id === '2' && node.data.isConnected) {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              songData: selection
-            }
-          };
-        }
-        return node;
-      })
-    );
-  }, [setNodes]);
+    // Update output node with new song data
+    setNodes(currentNodes => updateOutputNode(edges, currentNodes));
+  }, [setNodes, updateOutputNode, edges]);
 
-  // Update song select node with callback
+  // Handle filter changes
+  const handleFilterChange = useCallback((nodeId, filterData) => {
+    setFilterSettings(prev => ({
+      ...prev,
+      [nodeId]: filterData
+    }));
+    
+    // Update output node with new effect chain
+    setNodes(currentNodes => updateOutputNode(edges, currentNodes));
+  }, [setFilterSettings, setNodes, updateOutputNode, edges]);
+
+  // Update nodes with callbacks
   useEffect(() => {
     setNodes((nds) =>
       nds.map((node) => {
@@ -350,10 +495,19 @@ function App() {
             }
           };
         }
+        if (node.id === '2') {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              onFilterChange: (filterData) => handleFilterChange(node.id, filterData)
+            }
+          };
+        }
         return node;
       })
     );
-  }, [setNodes, handleSelectionChange]);
+  }, [setNodes, handleSelectionChange, handleFilterChange]);
 
   return (
     <div className="App">

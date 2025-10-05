@@ -3,7 +3,7 @@
 }
 
 /* Node Styles */
-.song-select-node, .output-node {
+.song-select-node, .output-node, .highpass-filter-node {
   background: white;
   border: 2px solid #ddd;
   border-radius: 10px;
@@ -149,6 +149,65 @@
 .status.disconnected {
   color: #f44336;
   background-color: #fff0f0;
+}
+
+/* High Pass Filter Node Styles */
+.highpass-filter-node {
+  border-color: #9C27B0;
+}
+
+.filter-control {
+  text-align: center;
+}
+
+.filter-control label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: bold;
+  color: #555;
+  font-size: 12px;
+}
+
+.frequency-slider {
+  width: 100%;
+  margin: 10px 0;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: #ddd;
+  outline: none;
+  cursor: pointer;
+}
+
+.frequency-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #9C27B0;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.frequency-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #9C27B0;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.frequency-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #888;
+  margin-top: 5px;
 }
 
 /* Handle Styles */
