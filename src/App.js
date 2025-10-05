@@ -9,13 +9,14 @@ import ReactFlow, {
   Handle,
   Position,
 } from 'reactflow';
-// import * as Tone from 'tone'; // Temporarily disabled for testing
-
 import 'reactflow/dist/style.css';
 import './App.css';
 
 // Import songs data
 import songsData from './songs.json';
+
+// ToneJS is loaded globally via CDN in index.html
+// Access it via window.Tone with proper checking
 
 // Song Select Node Component
 const SongSelectNode = ({ data, isConnectable }) => {
@@ -131,21 +132,53 @@ const OutputNode = ({ data, isConnectable }) => {
     if (!songData || !isConnected) return;
 
     try {
-      // Simulate audio playback for testing React Flow functionality
-      console.log('Would play:', songData.audioUrl);
-      
+      // Check if Tone is available
+      if (!window.Tone) {
+        throw new Error('ToneJS not loaded');
+      }
+
+      const Tone = window.Tone;
+
+      // Ensure audio context is started
+      if (Tone.context.state !== 'running') {
+        await Tone.start();
+      }
+
+      // Stop any existing player
+      if (currentPlayer) {
+        currentPlayer.stop();
+        currentPlayer.dispose();
+      }
+
+      // Create new player
+      const player = new Tone.Player({
+        url: songData.audioUrl,
+        loop: true,
+        autostart: false
+      }).toDestination();
+
+      // Wait for buffer to load
+      await Tone.loaded();
+
+      // Start playback
+      player.start();
+      setCurrentPlayer(player);
       setIsPlaying(true);
-      setStatus(`Playing: ${songData.sound.name} (looping) - DEMO MODE`);
+      setStatus(`Playing: ${songData.sound.name} (looping)`);
 
     } catch (error) {
       console.error('Error playing audio:', error);
       setStatus('Error playing audio');
+      setIsPlaying(false);
     }
   };
 
   const stopAudio = () => {
-    // Simulate stopping audio
-    console.log('Stopping audio playback');
+    if (currentPlayer) {
+      currentPlayer.stop();
+      currentPlayer.dispose();
+      setCurrentPlayer(null);
+    }
     setIsPlaying(false);
     setStatus(isConnected ? 'Connected - Ready to play' : 'Disconnected');
   };
