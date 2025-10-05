@@ -179,6 +179,67 @@ const HighPassFilterNode = ({ data, isConnectable }) => {
   );
 };
 
+// Pitch Shift Node Component
+const PitchShiftNode = ({ data, isConnectable }) => {
+  const [semitones, setSemitones] = useState(0);
+
+  const handleSemitonesChange = (e) => {
+    const newSemitones = parseInt(e.target.value);
+    setSemitones(newSemitones);
+    
+    // Update the pitch shift data
+    if (data.onFilterChange) {
+      data.onFilterChange({
+        type: 'pitchshift',
+        semitones: newSemitones
+      });
+    }
+  };
+
+  return (
+    <div className="pitchshift-node">
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="input"
+        isConnectable={isConnectable}
+        className="handle-left"
+      />
+      
+      <div className="node-header">
+        <h3>🎵 Pitch Shift</h3>
+      </div>
+      
+      <div className="node-content">
+        <div className="filter-control">
+          <label>Pitch: {semitones > 0 ? '+' : ''}{semitones} semitones</label>
+          <input
+            type="range"
+            min="-10"
+            max="10"
+            value={semitones}
+            onChange={handleSemitonesChange}
+            className="semitones-slider"
+          />
+          <div className="frequency-labels">
+            <span>-10</span>
+            <span>0</span>
+            <span>+10</span>
+          </div>
+        </div>
+      </div>
+      
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="output"
+        isConnectable={isConnectable}
+        className="handle-right"
+      />
+    </div>
+  );
+};
+
 // Output Node Component
 const OutputNode = ({ data, isConnectable }) => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -232,6 +293,9 @@ const OutputNode = ({ data, isConnectable }) => {
         if (effectData.type === 'highpass') {
           const filter = new Tone.Filter(effectData.frequency, 'highpass');
           effects.push(filter);
+        } else if (effectData.type === 'pitchshift') {
+          const pitchShift = new Tone.PitchShift(effectData.semitones);
+          effects.push(pitchShift);
         }
         // Add more effect types here as needed
       });
@@ -343,6 +407,7 @@ const nodeTypes = {
   songSelect: SongSelectNode,
   output: OutputNode,
   highpassFilter: HighPassFilterNode,
+  pitchshift: PitchShiftNode,
 };
 
 // Initial nodes
@@ -365,6 +430,14 @@ const initialNodes = [
   },
   {
     id: '3',
+    type: 'pitchshift',
+    position: { x: 350, y: 250 },
+    data: {
+      onFilterChange: () => {} // Will be set in App component
+    },
+  },
+  {
+    id: '4',
     type: 'output',
     position: { x: 600, y: 100 },
     data: {
@@ -406,7 +479,7 @@ function App() {
       if (!sourceNode) break;
       
       // If it's an effect node, add to chain
-      if (sourceNode.type === 'highpassFilter') {
+      if (sourceNode.type === 'highpassFilter' || sourceNode.type === 'pitchshift') {
         const filterData = filterSettings[sourceNode.id];
         if (filterData) {
           chain.unshift(filterData); // Add to beginning to maintain order
@@ -495,7 +568,7 @@ function App() {
             }
           };
         }
-        if (node.id === '2') {
+        if (node.id === '2' || node.type === 'highpassFilter' || node.type === 'pitchshift') {
           return {
             ...node,
             data: {
