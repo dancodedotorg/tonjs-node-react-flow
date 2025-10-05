@@ -410,7 +410,7 @@ const nodeTypes = {
   pitchshift: PitchShiftNode,
 };
 
-// Initial nodes
+// Initial nodes - only song select and output
 const initialNodes = [
   {
     id: '1',
@@ -422,22 +422,6 @@ const initialNodes = [
   },
   {
     id: '2',
-    type: 'highpassFilter',
-    position: { x: 350, y: 100 },
-    data: {
-      onFilterChange: () => {} // Will be set in App component
-    },
-  },
-  {
-    id: '3',
-    type: 'pitchshift',
-    position: { x: 350, y: 250 },
-    data: {
-      onFilterChange: () => {} // Will be set in App component
-    },
-  },
-  {
-    id: '4',
     type: 'output',
     position: { x: 600, y: 100 },
     data: {
@@ -455,6 +439,7 @@ function App() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [songSelection, setSongSelection] = useState(null);
   const [filterSettings, setFilterSettings] = useState({});
+  const [nextNodeId, setNextNodeId] = useState(3); // Start from 3 since we have nodes 1 and 2
 
   // Build effect chain by tracing connections from song select to output
   const buildEffectChain = useCallback((currentEdges, currentNodes) => {
@@ -559,7 +544,7 @@ function App() {
   useEffect(() => {
     setNodes((nds) =>
       nds.map((node) => {
-        if (node.id === '1') {
+        if (node.type === 'songSelect') {
           return {
             ...node,
             data: {
@@ -568,7 +553,7 @@ function App() {
             }
           };
         }
-        if (node.id === '2' || node.type === 'highpassFilter' || node.type === 'pitchshift') {
+        if (node.type === 'highpassFilter' || node.type === 'pitchshift') {
           return {
             ...node,
             data: {
@@ -582,8 +567,52 @@ function App() {
     );
   }, [setNodes, handleSelectionChange, handleFilterChange]);
 
+  // Function to add a new node to the workspace
+  const addNode = useCallback((nodeType) => {
+    const newNodeId = nextNodeId.toString();
+    
+    // Calculate position - place new nodes in the middle area
+    const baseX = 350;
+    const baseY = 100;
+    const offset = (nextNodeId - 3) * 150; // Offset each new node
+    
+    const newNode = {
+      id: newNodeId,
+      type: nodeType,
+      position: { x: baseX, y: baseY + offset },
+      data: {
+        onFilterChange: (filterData) => handleFilterChange(newNodeId, filterData)
+      },
+    };
+
+    setNodes((nds) => [...nds, newNode]);
+    setNextNodeId(prev => prev + 1);
+  }, [nextNodeId, setNodes, handleFilterChange]);
+
+  // Button handlers
+  const addHighPassFilter = () => addNode('highpassFilter');
+  const addPitchShift = () => addNode('pitchshift');
+
   return (
     <div className="App">
+      {/* Sticky buttons */}
+      <div className="sticky-buttons">
+        <button
+          className="add-node-btn high-pass-btn"
+          onClick={addHighPassFilter}
+          title="Add High Pass Filter"
+        >
+          🎛️ High Pass Filter
+        </button>
+        <button
+          className="add-node-btn pitch-shift-btn"
+          onClick={addPitchShift}
+          title="Add Pitch Shift"
+        >
+          🎵 Adjust Pitch
+        </button>
+      </div>
+      
       <div style={{ width: '100vw', height: '100vh' }}>
         <ReactFlow
           nodes={nodes}
