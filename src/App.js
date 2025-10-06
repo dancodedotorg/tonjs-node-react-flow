@@ -333,6 +333,100 @@ const DelayNode = ({ data, isConnectable }) => {
   );
 };
 
+// Reverb Node Component
+const ReverbNode = ({ data, isConnectable }) => {
+  const [roomSize, setRoomSize] = useState(0.7);
+  const [decay, setDecay] = useState(1.5);
+
+  const handleRoomSizeChange = (e) => {
+    const newRoomSize = parseFloat(e.target.value);
+    setRoomSize(newRoomSize);
+    
+    // Update the reverb data
+    if (data.onFilterChange) {
+      data.onFilterChange({
+        type: 'reverb',
+        roomSize: newRoomSize,
+        decay: decay
+      });
+    }
+  };
+
+  const handleDecayChange = (e) => {
+    const newDecay = parseFloat(e.target.value);
+    setDecay(newDecay);
+    
+    // Update the reverb data
+    if (data.onFilterChange) {
+      data.onFilterChange({
+        type: 'reverb',
+        roomSize: roomSize,
+        decay: newDecay
+      });
+    }
+  };
+
+  return (
+    <div className="reverb-node">
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="input"
+        isConnectable={isConnectable}
+        className="handle-left"
+      />
+      
+      <div className="node-header">
+        <h3>🏛️ Reverb</h3>
+      </div>
+      
+      <div className="node-content">
+        <div className="filter-control">
+          <label>Room Size: {Math.round(roomSize * 100)}%</label>
+          <input
+            type="range"
+            min="0.1"
+            max="1.0"
+            step="0.01"
+            value={roomSize}
+            onChange={handleRoomSizeChange}
+            className="roomsize-slider"
+          />
+          <div className="frequency-labels">
+            <span>10%</span>
+            <span>100%</span>
+          </div>
+        </div>
+        
+        <div className="filter-control">
+          <label>Decay: {decay.toFixed(1)}s</label>
+          <input
+            type="range"
+            min="0.1"
+            max="10.0"
+            step="0.1"
+            value={decay}
+            onChange={handleDecayChange}
+            className="decay-slider"
+          />
+          <div className="frequency-labels">
+            <span>0.1s</span>
+            <span>10s</span>
+          </div>
+        </div>
+      </div>
+      
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="output"
+        isConnectable={isConnectable}
+        className="handle-right"
+      />
+    </div>
+  );
+};
+
 // Pitch Shift Node Component
 const PitchShiftNode = ({ data, isConnectable }) => {
   const [semitones, setSemitones] = useState(0);
@@ -454,6 +548,12 @@ const OutputNode = ({ data, isConnectable }) => {
           const delay = new Tone.Delay(effectData.delayTime);
           delay.feedback.value = effectData.feedback;
           effects.push(delay);
+        } else if (effectData.type === 'reverb') {
+          const reverb = new Tone.Reverb({
+            decay: effectData.decay,
+            roomSize: effectData.roomSize
+          });
+          effects.push(reverb);
         } else if (effectData.type === 'pitchshift') {
           const pitchShift = new Tone.PitchShift(effectData.semitones);
           effects.push(pitchShift);
@@ -570,6 +670,7 @@ const nodeTypes = {
   highpassFilter: HighPassFilterNode,
   lowpassFilter: LowPassFilterNode,
   delay: DelayNode,
+  reverb: ReverbNode,
   pitchshift: PitchShiftNode,
 };
 
@@ -627,7 +728,7 @@ function App() {
       if (!sourceNode) break;
       
       // If it's an effect node, add to chain
-      if (sourceNode.type === 'highpassFilter' || sourceNode.type === 'lowpassFilter' || sourceNode.type === 'delay' || sourceNode.type === 'pitchshift') {
+      if (sourceNode.type === 'highpassFilter' || sourceNode.type === 'lowpassFilter' || sourceNode.type === 'delay' || sourceNode.type === 'reverb' || sourceNode.type === 'pitchshift') {
         const filterData = filterSettings[sourceNode.id];
         if (filterData) {
           chain.unshift(filterData); // Add to beginning to maintain order
@@ -716,7 +817,7 @@ function App() {
             }
           };
         }
-        if (node.type === 'highpassFilter' || node.type === 'lowpassFilter' || node.type === 'delay' || node.type === 'pitchshift') {
+        if (node.type === 'highpassFilter' || node.type === 'lowpassFilter' || node.type === 'delay' || node.type === 'reverb' || node.type === 'pitchshift') {
           return {
             ...node,
             data: {
@@ -756,6 +857,7 @@ function App() {
   const addHighPassFilter = () => addNode('highpassFilter');
   const addLowPassFilter = () => addNode('lowpassFilter');
   const addDelay = () => addNode('delay');
+  const addReverb = () => addNode('reverb');
   const addPitchShift = () => addNode('pitchshift');
 
   return (
@@ -782,6 +884,13 @@ function App() {
           title="Add Delay"
         >
           🔄 Delay
+        </button>
+        <button
+          className="add-node-btn reverb-btn"
+          onClick={addReverb}
+          title="Add Reverb"
+        >
+          🏛️ Reverb
         </button>
         <button
           className="add-node-btn pitch-shift-btn"
