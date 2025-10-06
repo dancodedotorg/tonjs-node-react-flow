@@ -179,6 +179,160 @@ const HighPassFilterNode = ({ data, isConnectable }) => {
   );
 };
 
+// Low Pass Filter Node Component
+const LowPassFilterNode = ({ data, isConnectable }) => {
+  const [frequency, setFrequency] = useState(1000);
+
+  const handleFrequencyChange = (e) => {
+    const newFreq = parseInt(e.target.value);
+    setFrequency(newFreq);
+    
+    // Update the filter data
+    if (data.onFilterChange) {
+      data.onFilterChange({
+        type: 'lowpass',
+        frequency: newFreq
+      });
+    }
+  };
+
+  return (
+    <div className="lowpass-filter-node">
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="input"
+        isConnectable={isConnectable}
+        className="handle-left"
+      />
+      
+      <div className="node-header">
+        <h3>🔽 Low Pass Filter</h3>
+      </div>
+      
+      <div className="node-content">
+        <div className="filter-control">
+          <label>Frequency: {frequency} Hz</label>
+          <input
+            type="range"
+            min="20"
+            max="20000"
+            value={frequency}
+            onChange={handleFrequencyChange}
+            className="frequency-slider"
+          />
+          <div className="frequency-labels">
+            <span>20Hz</span>
+            <span>20kHz</span>
+          </div>
+        </div>
+      </div>
+      
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="output"
+        isConnectable={isConnectable}
+        className="handle-right"
+      />
+    </div>
+  );
+};
+
+// Delay Node Component
+const DelayNode = ({ data, isConnectable }) => {
+  const [delayTime, setDelayTime] = useState(0.25);
+  const [feedback, setFeedback] = useState(0.3);
+
+  const handleDelayTimeChange = (e) => {
+    const newDelayTime = parseFloat(e.target.value);
+    setDelayTime(newDelayTime);
+    
+    // Update the delay data
+    if (data.onFilterChange) {
+      data.onFilterChange({
+        type: 'delay',
+        delayTime: newDelayTime,
+        feedback: feedback
+      });
+    }
+  };
+
+  const handleFeedbackChange = (e) => {
+    const newFeedback = parseFloat(e.target.value);
+    setFeedback(newFeedback);
+    
+    // Update the delay data
+    if (data.onFilterChange) {
+      data.onFilterChange({
+        type: 'delay',
+        delayTime: delayTime,
+        feedback: newFeedback
+      });
+    }
+  };
+
+  return (
+    <div className="delay-node">
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="input"
+        isConnectable={isConnectable}
+        className="handle-left"
+      />
+      
+      <div className="node-header">
+        <h3>🔄 Delay</h3>
+      </div>
+      
+      <div className="node-content">
+        <div className="filter-control">
+          <label>Delay Time: {delayTime}s</label>
+          <input
+            type="range"
+            min="0.01"
+            max="1.0"
+            step="0.01"
+            value={delayTime}
+            onChange={handleDelayTimeChange}
+            className="delay-slider"
+          />
+          <div className="frequency-labels">
+            <span>0.01s</span>
+            <span>1.0s</span>
+          </div>
+        </div>
+        
+        <div className="filter-control">
+          <label>Feedback: {Math.round(feedback * 100)}%</label>
+          <input
+            type="range"
+            min="0"
+            max="0.95"
+            step="0.01"
+            value={feedback}
+            onChange={handleFeedbackChange}
+            className="feedback-slider"
+          />
+          <div className="frequency-labels">
+            <span>0%</span>
+            <span>95%</span>
+          </div>
+        </div>
+      </div>
+      
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="output"
+        isConnectable={isConnectable}
+        className="handle-right"
+      />
+    </div>
+  );
+};
+
 // Pitch Shift Node Component
 const PitchShiftNode = ({ data, isConnectable }) => {
   const [semitones, setSemitones] = useState(0);
@@ -293,6 +447,13 @@ const OutputNode = ({ data, isConnectable }) => {
         if (effectData.type === 'highpass') {
           const filter = new Tone.Filter(effectData.frequency, 'highpass');
           effects.push(filter);
+        } else if (effectData.type === 'lowpass') {
+          const filter = new Tone.Filter(effectData.frequency, 'lowpass');
+          effects.push(filter);
+        } else if (effectData.type === 'delay') {
+          const delay = new Tone.Delay(effectData.delayTime);
+          delay.feedback.value = effectData.feedback;
+          effects.push(delay);
         } else if (effectData.type === 'pitchshift') {
           const pitchShift = new Tone.PitchShift(effectData.semitones);
           effects.push(pitchShift);
@@ -407,6 +568,8 @@ const nodeTypes = {
   songSelect: SongSelectNode,
   output: OutputNode,
   highpassFilter: HighPassFilterNode,
+  lowpassFilter: LowPassFilterNode,
+  delay: DelayNode,
   pitchshift: PitchShiftNode,
 };
 
@@ -464,7 +627,7 @@ function App() {
       if (!sourceNode) break;
       
       // If it's an effect node, add to chain
-      if (sourceNode.type === 'highpassFilter' || sourceNode.type === 'pitchshift') {
+      if (sourceNode.type === 'highpassFilter' || sourceNode.type === 'lowpassFilter' || sourceNode.type === 'delay' || sourceNode.type === 'pitchshift') {
         const filterData = filterSettings[sourceNode.id];
         if (filterData) {
           chain.unshift(filterData); // Add to beginning to maintain order
@@ -553,7 +716,7 @@ function App() {
             }
           };
         }
-        if (node.type === 'highpassFilter' || node.type === 'pitchshift') {
+        if (node.type === 'highpassFilter' || node.type === 'lowpassFilter' || node.type === 'delay' || node.type === 'pitchshift') {
           return {
             ...node,
             data: {
@@ -591,6 +754,8 @@ function App() {
 
   // Button handlers
   const addHighPassFilter = () => addNode('highpassFilter');
+  const addLowPassFilter = () => addNode('lowpassFilter');
+  const addDelay = () => addNode('delay');
   const addPitchShift = () => addNode('pitchshift');
 
   return (
@@ -603,6 +768,20 @@ function App() {
           title="Add High Pass Filter"
         >
           🎛️ High Pass Filter
+        </button>
+        <button
+          className="add-node-btn low-pass-btn"
+          onClick={addLowPassFilter}
+          title="Add Low Pass Filter"
+        >
+          🔽 Low Pass Filter
+        </button>
+        <button
+          className="add-node-btn delay-btn"
+          onClick={addDelay}
+          title="Add Delay"
+        >
+          🔄 Delay
         </button>
         <button
           className="add-node-btn pitch-shift-btn"

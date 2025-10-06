@@ -47,6 +47,26 @@
   background: linear-gradient(135deg, #8E24AA, #D1C4E9);
 }
 
+.low-pass-btn {
+  background: linear-gradient(135deg, #2196F3, #BBDEFB);
+  color: white;
+  border-left: 4px solid #2196F3;
+}
+
+.low-pass-btn:hover {
+  background: linear-gradient(135deg, #1976D2, #90CAF9);
+}
+
+.delay-btn {
+  background: linear-gradient(135deg, #4CAF50, #C8E6C9);
+  color: white;
+  border-left: 4px solid #4CAF50;
+}
+
+.delay-btn:hover {
+  background: linear-gradient(135deg, #388E3C, #A5D6A7);
+}
+
 .pitch-shift-btn {
   background: linear-gradient(135deg, #FF9800, #FFE0B2);
   color: white;
@@ -58,7 +78,7 @@
 }
 
 /* Node Styles */
-.song-select-node, .output-node, .highpass-filter-node, .pitchshift-node {
+.song-select-node, .output-node, .highpass-filter-node, .lowpass-filter-node, .delay-node, .pitchshift-node {
   background: white;
   border: 2px solid #ddd;
   border-radius: 10px;
@@ -209,6 +229,58 @@
 /* High Pass Filter Node Styles */
 .highpass-filter-node {
   border-color: #9C27B0;
+}
+
+/* Low Pass Filter Node Styles */
+.lowpass-filter-node {
+  border-color: #2196F3;
+}
+
+.lowpass-filter-node .frequency-slider::-webkit-slider-thumb {
+  background: #2196F3;
+}
+
+.lowpass-filter-node .frequency-slider::-moz-range-thumb {
+  background: #2196F3;
+}
+
+/* Delay Node Styles */
+.delay-node {
+  border-color: #4CAF50;
+}
+
+.delay-slider, .feedback-slider {
+  width: 100%;
+  margin: 10px 0;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: #ddd;
+  outline: none;
+  cursor: pointer;
+}
+
+.delay-slider::-webkit-slider-thumb, .feedback-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #4CAF50;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.delay-slider::-moz-range-thumb, .feedback-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #4CAF50;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 .filter-control {
