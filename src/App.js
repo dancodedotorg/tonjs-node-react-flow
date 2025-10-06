@@ -844,8 +844,12 @@ function App() {
 
   const onEdgesDelete = useCallback(
     (edgesToDelete) => {
+      // Filter out the deleted edges to get the remaining connections
+      const edgeIdsToDelete = edgesToDelete.map(edge => edge.id);
+      const remainingEdges = edges.filter(edge => !edgeIdsToDelete.includes(edge.id));
+      
       // Update nodes based on remaining connections
-      setNodes(currentNodes => updateOutputNode(edges, currentNodes));
+      setNodes(currentNodes => updateOutputNode(remainingEdges, currentNodes));
     },
     [setNodes, edges, updateOutputNode]
   );
@@ -853,10 +857,7 @@ function App() {
   // Handle song selection changes
   const handleSelectionChange = useCallback((selection) => {
     setSongSelection(selection);
-    
-    // Update output node with new song data
-    setNodes(currentNodes => updateOutputNode(edges, currentNodes));
-  }, [setNodes, updateOutputNode, edges]);
+  }, []);
 
   // Handle filter changes
   const handleFilterChange = useCallback((nodeId, filterData) => {
@@ -864,18 +865,17 @@ function App() {
       ...prev,
       [nodeId]: filterData
     }));
-    
-    // Update output node with new effect chain
-    setNodes(currentNodes => updateOutputNode(edges, currentNodes));
-  }, [setFilterSettings, setNodes, updateOutputNode, edges]);
+  }, []);
 
   // Handle BPM changes
   const handleBpmChange = useCallback((newBpm) => {
     setCurrentBpm(newBpm);
-    
-    // Update output node with new BPM
+  }, []);
+
+  // Centralized effect to update output node whenever relevant state changes
+  useEffect(() => {
     setNodes(currentNodes => updateOutputNode(edges, currentNodes));
-  }, [setCurrentBpm, setNodes, updateOutputNode, edges]);
+  }, [edges, songSelection, filterSettings, currentBpm, updateOutputNode]);
 
   // Update nodes with callbacks
   useEffect(() => {
