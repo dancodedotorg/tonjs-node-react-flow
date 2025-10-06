@@ -6,7 +6,7 @@ A visual music creation application built with React, ToneJS, and React Flow. Cr
 
 - **Visual Node Interface**: Drag-and-drop interface for connecting audio components
 - **Multiple Sound Packs**: Choose from various music packs including Electro Dance, Groove Central, Indie Dreams, Pop Paradise, Hip Hop, Heavy Rock, and Acoustic Arcade
-- **Audio Effects**: Apply high-pass filters and pitch shifting effects to your sounds
+- **Audio Effects**: Apply multiple audio effects including filters, delay, reverb, and pitch shifting
 - **Real-time Playback**: Loop audio with applied effects in real-time
 - **Interactive Controls**: Adjust effect parameters with sliders and controls
 
@@ -56,16 +56,30 @@ The application should automatically open in your default browser. If it doesn't
 
 ### Adding Effects
 
-1. **Add Effect Nodes**: Right-click in the canvas and select "Add High Pass Filter" or "Add Pitch Shift" from the context menu
+1. **Add Effect Nodes**: Click the effect buttons on the left side to add nodes:
+   - 🎛️ High Pass Filter
+   - 🔽 Low Pass Filter
+   - 🔄 Delay
+   - 🏛️ Reverb
+   - 🎵 BPM
+   - 🎵 Adjust Pitch
 2. **Connect Effects**: Connect nodes in sequence: Song Select → Effect(s) → Output
 3. **Adjust Parameters**: Use the sliders in effect nodes to modify the sound:
    - **High Pass Filter**: Adjust frequency (20Hz - 20kHz)
+   - **Low Pass Filter**: Adjust frequency (20Hz - 20kHz)
+   - **Delay**: Adjust delay time (0.01s - 1.0s) and feedback (0% - 95%)
+   - **Reverb**: Adjust room size (10% - 100%) and decay time (0.1s - 10s)
+   - **BPM**: Control global tempo (60-200 BPM)
    - **Pitch Shift**: Adjust pitch (-10 to +10 semitones)
 
 ### Node Types
 
 - **🎵 Song Select**: Choose music packs and individual sounds
 - **🎛️ High Pass Filter**: Filter out frequencies below the set threshold
+- **🔽 Low Pass Filter**: Filter out frequencies above the set threshold
+- **🔄 Delay**: Add echo effects with adjustable delay time and feedback
+- **🏛️ Reverb**: Simulate acoustic spaces with room size and decay controls
+- **🎵 BPM**: Control the global tempo of the audio system
 - **🎵 Pitch Shift**: Change the pitch of the audio up or down
 - **🔊 Audio Output**: Play the processed audio with loop functionality
 

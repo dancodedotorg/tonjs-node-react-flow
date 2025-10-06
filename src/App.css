@@ -77,6 +77,16 @@
   background: linear-gradient(135deg, #5E35B1, #B39DDB);
 }
 
+.bpm-btn {
+  background: linear-gradient(135deg, #E91E63, #F8BBD9);
+  color: white;
+  border-left: 4px solid #E91E63;
+}
+
+.bpm-btn:hover {
+  background: linear-gradient(135deg, #C2185B, #F48FB1);
+}
+
 .pitch-shift-btn {
   background: linear-gradient(135deg, #FF9800, #FFE0B2);
   color: white;
@@ -88,7 +98,7 @@
 }
 
 /* Node Styles */
-.song-select-node, .output-node, .highpass-filter-node, .lowpass-filter-node, .delay-node, .reverb-node, .pitchshift-node {
+.song-select-node, .output-node, .highpass-filter-node, .lowpass-filter-node, .delay-node, .reverb-node, .bpm-node, .pitchshift-node {
   background: white;
   border: 2px solid #ddd;
   border-radius: 10px;
@@ -327,6 +337,45 @@
   height: 18px;
   border-radius: 50%;
   background: #673AB7;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* BPM Node Styles */
+.bpm-node {
+  border-color: #E91E63;
+}
+
+.bpm-slider {
+  width: 100%;
+  margin: 10px 0;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: #ddd;
+  outline: none;
+  cursor: pointer;
+}
+
+.bpm-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #E91E63;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.bpm-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #E91E63;
   cursor: pointer;
   border: 2px solid white;
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
