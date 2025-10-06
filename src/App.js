@@ -427,63 +427,6 @@ const ReverbNode = ({ data, isConnectable }) => {
   );
 };
 
-// BPM Node Component
-const BPMNode = ({ data, isConnectable }) => {
-  const [bpm, setBpm] = useState(120);
-
-  const handleBpmChange = (e) => {
-    const newBpm = parseInt(e.target.value);
-    setBpm(newBpm);
-    
-    // Update the BPM data
-    if (data.onBpmChange) {
-      data.onBpmChange(newBpm);
-    }
-  };
-
-  return (
-    <div className="bpm-node">
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="input"
-        isConnectable={isConnectable}
-        className="handle-left"
-      />
-      
-      <div className="node-header">
-        <h3>🎵 BPM</h3>
-      </div>
-      
-      <div className="node-content">
-        <div className="filter-control">
-          <label>Tempo: {bpm} BPM</label>
-          <input
-            type="range"
-            min="60"
-            max="200"
-            step="1"
-            value={bpm}
-            onChange={handleBpmChange}
-            className="bpm-slider"
-          />
-          <div className="frequency-labels">
-            <span>60 BPM</span>
-            <span>200 BPM</span>
-          </div>
-        </div>
-      </div>
-      
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="output"
-        isConnectable={isConnectable}
-        className="handle-right"
-      />
-    </div>
-  );
-};
 
 // Pitch Shift Node Component
 const PitchShiftNode = ({ data, isConnectable }) => {
@@ -552,11 +495,21 @@ const OutputNode = ({ data, isConnectable }) => {
   const [currentPlayer, setCurrentPlayer] = useState(null);
   const [currentChain, setCurrentChain] = useState([]);
   const [status, setStatus] = useState('Disconnected');
+  const [bpm, setBpm] = useState(120);
 
   const isConnected = data.isConnected;
   const songData = data.songData;
   const effectChain = data.effectChain || [];
-  const currentBpm = data.currentBpm || 120;
+
+  const handleBpmChange = (e) => {
+    const newBpm = parseInt(e.target.value);
+    setBpm(newBpm);
+    
+    // Update ToneJS Transport immediately if available
+    if (window.Tone && window.Tone.Transport) {
+      window.Tone.Transport.bpm.value = newBpm;
+    }
+  };
 
   const playAudio = async () => {
     if (!songData || !isConnected) return;
@@ -574,14 +527,18 @@ const OutputNode = ({ data, isConnectable }) => {
         await Tone.start();
       }
 
-      // Set the BPM
-      Tone.Transport.bpm.value = currentBpm;
-
+      // Set the BPM and start Transport
+      Tone.Transport.bpm.value = bpm;
+      
       // Stop any existing player and dispose of chain
       if (currentPlayer) {
         currentPlayer.stop();
         currentPlayer.dispose();
       }
+      
+      // Stop and clear Transport
+      Tone.Transport.stop();
+      Tone.Transport.cancel();
       
       // Dispose of existing effect chain
       currentChain.forEach(effect => {
@@ -590,11 +547,16 @@ const OutputNode = ({ data, isConnectable }) => {
         }
       });
 
-      // Create new player
+      // Calculate playback rate based on BPM (120 BPM is normal speed)
+      const baseBpm = 120;
+      const playbackRate = bpm / baseBpm;
+      
+      // Create new player with adjusted playback rate
       const player = new Tone.Player({
         url: songData.audioUrl,
-        loop: true,
-        autostart: false
+        loop: false, // We'll handle looping with Transport
+        autostart: false,
+        playbackRate: playbackRate
       });
 
       // Create effect chain
@@ -637,15 +599,26 @@ const OutputNode = ({ data, isConnectable }) => {
       // Wait for buffer to load
       await Tone.loaded();
 
-      // Start playback
-      player.start();
+      // Calculate loop duration based on original BPM and adjusted for playback rate
+      const beatsPerBar = 4;
+      const originalBarDuration = (60 / baseBpm) * beatsPerBar; // Original duration at 120 BPM
+      const adjustedBarDuration = originalBarDuration / playbackRate; // Adjusted for new BPM
+      
+      // Schedule the player to loop using Transport
+      Tone.Transport.scheduleRepeat((time) => {
+        player.start(time);
+      }, adjustedBarDuration);
+
+      // Start Transport
+      Tone.Transport.start();
+      
       setCurrentPlayer(player);
       setIsPlaying(true);
       
       const effectsText = effectChain.length > 0
         ? ` with ${effectChain.length} effect(s)`
         : '';
-      setStatus(`Playing: ${songData.sound.name}${effectsText} (looping)`);
+      setStatus(`Playing: ${songData.sound.name}${effectsText} at ${bpm} BPM (looping)`);
 
     } catch (error) {
       console.error('Error playing audio:', error);
@@ -655,6 +628,12 @@ const OutputNode = ({ data, isConnectable }) => {
   };
 
   const stopAudio = () => {
+    // Stop Transport
+    if (window.Tone && window.Tone.Transport) {
+      window.Tone.Transport.stop();
+      window.Tone.Transport.cancel();
+    }
+    
     if (currentPlayer) {
       currentPlayer.stop();
       currentPlayer.dispose();
@@ -717,6 +696,24 @@ const OutputNode = ({ data, isConnectable }) => {
           </button>
         </div>
         
+        <div className="bpm-control">
+          <label>Tempo: {bpm} BPM</label>
+          <input
+            type="range"
+            min="60"
+            max="200"
+            step="1"
+            value={bpm}
+            onChange={handleBpmChange}
+            className="bpm-slider"
+            disabled={isPlaying}
+          />
+          <div className="frequency-labels">
+            <span>60 BPM</span>
+            <span>200 BPM</span>
+          </div>
+        </div>
+        
         <div className={`status ${isPlaying ? 'playing' : isConnected ? 'connected' : 'disconnected'}`}>
           {status}
         </div>
@@ -733,7 +730,6 @@ const nodeTypes = {
   lowpassFilter: LowPassFilterNode,
   delay: DelayNode,
   reverb: ReverbNode,
-  bpm: BPMNode,
   pitchshift: PitchShiftNode,
 };
 
@@ -766,7 +762,6 @@ function App() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [songSelection, setSongSelection] = useState(null);
   const [filterSettings, setFilterSettings] = useState({});
-  const [currentBpm, setCurrentBpm] = useState(120);
   const [nextNodeId, setNextNodeId] = useState(3); // Start from 3 since we have nodes 1 and 2
 
   // Build effect chain by tracing connections from song select to output
@@ -822,14 +817,13 @@ function App() {
             ...node.data,
             isConnected: hasConnection,
             songData: hasConnection ? songSelection : null,
-            effectChain: effectChain,
-            currentBpm: currentBpm
+            effectChain: effectChain
           }
         };
       }
       return node;
     });
-  }, [buildEffectChain, songSelection, currentBpm]);
+  }, [buildEffectChain, songSelection]);
 
   const onConnect = useCallback(
     (params) => {
@@ -867,15 +861,11 @@ function App() {
     }));
   }, []);
 
-  // Handle BPM changes
-  const handleBpmChange = useCallback((newBpm) => {
-    setCurrentBpm(newBpm);
-  }, []);
 
   // Centralized effect to update output node whenever relevant state changes
   useEffect(() => {
     setNodes(currentNodes => updateOutputNode(edges, currentNodes));
-  }, [edges, songSelection, filterSettings, currentBpm, updateOutputNode]);
+  }, [edges, songSelection, filterSettings, updateOutputNode]);
 
   // Update nodes with callbacks
   useEffect(() => {
@@ -899,19 +889,10 @@ function App() {
             }
           };
         }
-        if (node.type === 'bpm') {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              onBpmChange: handleBpmChange
-            }
-          };
-        }
         return node;
       })
     );
-  }, [setNodes, handleSelectionChange, handleFilterChange, handleBpmChange]);
+  }, [setNodes, handleSelectionChange, handleFilterChange]);
 
   // Function to add a new node to the workspace
   const addNode = useCallback((nodeType) => {
@@ -940,7 +921,6 @@ function App() {
   const addLowPassFilter = () => addNode('lowpassFilter');
   const addDelay = () => addNode('delay');
   const addReverb = () => addNode('reverb');
-  const addBpm = () => addNode('bpm');
   const addPitchShift = () => addNode('pitchshift');
 
   return (
@@ -974,13 +954,6 @@ function App() {
           title="Add Reverb"
         >
           🏛️ Reverb
-        </button>
-        <button
-          className="add-node-btn bpm-btn"
-          onClick={addBpm}
-          title="Add BPM Control"
-        >
-          🎵 BPM
         </button>
         <button
           className="add-node-btn pitch-shift-btn"
